@@ -3,71 +3,74 @@ package main
 import (
 	"debug/elf"
 	"flag"
-	"log"
+	"log/slog"
+	"net/url"
+	"os"
 )
 
 const (
-	CODE    SectionCategory = "code"
-	DATA    SectionCategory = "data"
-	BSS     SectionCategory = "bss"
-	UNKNOWN SectionCategory = "unknown"
+	envToken = "FELF_TOKEN"
+	envUrl   = "FELF_URL"
 )
 
-type Measurements struct {
-	textSize uint64
-	dataSize uint64
-	bssSize  uint64
-}
+func main() { os.Exit(cli()) }
 
-type SectionCategory string
-
-func main() { cli() }
-
-func cli() Measurements {
+func cli() int {
+	onlyMeasure := flag.Bool("only-measure", false, "Stop after performing measurements.")
+	dryRun := flag.Bool("dry-run", false, "Don't push data to the server. Log the payload to stdout.")
 	flag.Parse()
+
 	args := flag.Args()
 	if len(args) != 1 {
-		log.Fatal("Only a single positional argument is supported")
+		slog.Error("only a single positional argument is supported", "args", len(args))
+		return 2
 	}
 
 	file, err := elf.Open(args[0])
 	if err != nil {
-		log.Fatalf(err.Error())
+		slog.Error(err.Error())
+		return 74
 	}
 
-	result := Measurements{}
-	for _, section := range file.Sections {
-		if section.Type == elf.SHT_NULL {
-			continue
-		}
+	measurements := newSize(file)
+	slog.Info("analysis done", "size", measurements)
 
-		switch sectionCategory(section) {
-		case CODE:
-			result.textSize += section.Size
-		case DATA:
-			result.dataSize += section.Size
-		case BSS:
-			result.bssSize += section.Size
-		}
+	if *onlyMeasure {
+		return 0
 	}
 
-	return result
-}
-
-func sectionCategory(section *elf.Section) SectionCategory {
-	if (section.Flags & elf.SHF_ALLOC) == 0 {
-		return UNKNOWN
+	payload, err := newPayload()
+	if err != nil {
+		slog.Error(err.Error())
+		return 3
+	}
+	payload.Size = measurements
+	if *dryRun {
+		slog.Info("dry mode selected", "payload", *payload)
+		return 0
 	}
 
-	if section.Type == elf.SHT_PROGBITS {
-		if (section.Flags & elf.SHF_WRITE) == 0 {
-			return CODE
-		} else {
-			return DATA
-		}
-	} else if section.Type == elf.SHT_NOBITS {
-		return BSS
+	token := os.Getenv(envToken)
+	apiUrl := os.Getenv(envUrl)
+	if len(token) == 0 {
+		slog.Error("API token missing")
+		return 4
+	}
+	if _, err := url.Parse(apiUrl); err != nil {
+		slog.Error(err.Error())
+		return 5
 	}
 
-	return UNKNOWN
+	response, err := pushPayload(token, apiUrl, payload)
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
+	if response.StatusCode != 200 {
+		slog.Error("unexpected status code", "code", response.StatusCode)
+		return 1
+	}
+
+	slog.Info("successful push", "url", apiUrl)
+	return 0
 }
