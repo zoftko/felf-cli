@@ -22,15 +22,15 @@ const (
 )
 
 type Size struct {
-	Text uint64
-	Data uint64
-	Bss  uint64
+	Text uint64 `json:"text,omitempty"`
+	Data uint64 `json:"data,omitempty"`
+	Bss  uint64 `json:"bss,omitempty"`
 }
 
 type Payload struct {
-	Ref  string
-	Sha  string
-	Size Size
+	Ref  string `json:"ref,omitempty"`
+	Sha  string `json:"sha,omitempty"`
+	Size Size   `json:"size"`
 }
 
 type SectionCategory string

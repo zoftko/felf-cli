@@ -2,7 +2,9 @@ package main
 
 import (
 	"debug/elf"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
@@ -46,7 +48,13 @@ func cli() int {
 	}
 	payload.Size = measurements
 	if *dryRun {
-		slog.Info("dry mode selected", "payload", *payload)
+		body, err := json.Marshal(payload)
+		if err != nil {
+			slog.Error(err.Error())
+			return 1
+		}
+
+		slog.Info(fmt.Sprintf("payload: %s", body))
 		return 0
 	}
 
