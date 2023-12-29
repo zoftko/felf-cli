@@ -15,18 +15,31 @@ func TestExitCodes(t *testing.T) {
 	t.Cleanup(func() { os.Args = old })
 
 	tests := map[string]struct {
+		env  map[string]string
 		args []string
 		code int
 	}{
 		"NoArgs":      {args: []string{"cmd"}, code: 2},
 		"NoSuchFile":  {args: []string{"cmd", "testdata/nonexistent.elf"}, code: 74},
 		"OnlyMeasure": {args: []string{"cmd", "--only-measure", "testdata/rgctl.elf"}, code: 0},
+		"DryRun": {env: map[string]string{
+			ghActionSha:     "7eb306e0a1a8c77922acb685a21e4f9854a6bce3",
+			ghActionRepo:    "zoftko/felf",
+			ghActionRefName: "dev",
+		},
+			args: []string{"cmd", "--dry-run", "testdata/rgctl.elf"},
+			code: 0,
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			os.Args = test.args
 			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+			for key, val := range test.env {
+				t.Setenv(key, val)
+			}
+
 			if status := cli(); status != test.code {
 				t.Errorf("%s: expected exit code %d, got %d", name, test.code, status)
 			}
@@ -39,6 +52,7 @@ func TestPush(t *testing.T) {
 	t.Cleanup(func() { os.Args = old })
 
 	ref := "main"
+	repo := "zoftko/felf-cli"
 	token := "magicalmisterytoken"
 	path := "/api/measurements"
 	sha := "7eb306e0a1a8c77922acb685a21e4f9854a6bce3"
@@ -51,22 +65,40 @@ func TestPush(t *testing.T) {
 			env: map[string]string{
 				ghActionSha:     sha,
 				ghActionRefName: ref,
+				ghActionRepo:    repo,
 			},
 			response: 200,
 			code:     4,
 		},
-		"MissingGithubEnv": {
+		"MissingGithubSha": {
 			env: map[string]string{
 				ghActionSha:     "",
-				ghActionRefName: "",
+				ghActionRefName: ref,
 			},
 			response: 200,
+			code:     3,
+		},
+		"MissingGithubRef": {
+			env: map[string]string{
+				ghActionRefName: "",
+			},
+			response: -1,
+			code:     3,
+		},
+		"MissingGithubRepo": {
+			env: map[string]string{
+				ghActionRefName: ref,
+				ghActionSha:     sha,
+				ghActionRepo:    "",
+			},
+			response: -1,
 			code:     3,
 		},
 		"ResponseNon200": {
 			env: map[string]string{
 				ghActionSha:     sha,
 				ghActionRefName: ref,
+				ghActionRepo:    repo,
 				envToken:        token,
 			},
 			response: 401,
@@ -76,10 +108,22 @@ func TestPush(t *testing.T) {
 			env: map[string]string{
 				ghActionSha:     sha,
 				ghActionRefName: ref,
+				ghActionRepo:    repo,
 				envToken:        token,
 			},
 			response: 200,
 			code:     0,
+		},
+		"MissingURL": {
+			env: map[string]string{
+				ghActionSha:     sha,
+				ghActionRefName: ref,
+				ghActionRepo:    repo,
+				envToken:        token,
+				envUrl:          "",
+			},
+			response: -1,
+			code:     5,
 		},
 	}
 
@@ -95,6 +139,10 @@ func TestPush(t *testing.T) {
 
 				if method := request.Method; method != http.MethodPost {
 					t.Errorf("expected %s, got %s", method, http.MethodPost)
+				}
+
+				if repoHeader := request.Header.Get(headerRepo); repoHeader != repo {
+					t.Errorf("expected %s: %s, got %s", headerRepo, repo, repoHeader)
 				}
 
 				expectedAuth := fmt.Sprintf("Bearer %s", token)
