@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 )
 
@@ -64,8 +63,8 @@ func cli() int {
 		slog.Error("API token missing")
 		return 4
 	}
-	if _, err := url.Parse(apiUrl); err != nil {
-		slog.Error(err.Error())
+	if len(apiUrl) == 0 {
+		slog.Error("API URL missing")
 		return 5
 	}
 

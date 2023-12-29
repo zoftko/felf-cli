@@ -19,6 +19,11 @@ const (
 const (
 	ghActionRefName = "GITHUB_REF_NAME"
 	ghActionSha     = "GITHUB_SHA"
+	ghActionRepo    = "GITHUB_REPOSITORY"
+)
+
+const (
+	headerRepo = "X-Felf-Repo"
 )
 
 type Size struct {
@@ -28,6 +33,7 @@ type Size struct {
 }
 
 type Payload struct {
+	Repo string `json:"-"`
 	Ref  string `json:"ref,omitempty"`
 	Sha  string `json:"sha,omitempty"`
 	Size Size   `json:"size"`
@@ -46,9 +52,15 @@ func newPayload() (*Payload, error) {
 		return nil, fmt.Errorf("malformed sha, not 40 characters long")
 	}
 
+	repo := os.Getenv(ghActionRepo)
+	if len(repo) == 0 {
+		return nil, fmt.Errorf(fmt.Sprintf("%s not found", ghActionRepo))
+	}
+
 	return &Payload{
-		Ref: ref,
-		Sha: sha,
+		Repo: repo,
+		Ref:  ref,
+		Sha:  sha,
 	}, nil
 }
 
@@ -59,6 +71,7 @@ func pushPayload(token string, url string, payload *Payload) (*http.Response, er
 	}
 
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(body))
+	req.Header.Add(headerRepo, payload.Repo)
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
 
