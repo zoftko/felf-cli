@@ -75,7 +75,12 @@ func pushPayload(token string, url string, payload *Payload) (*http.Response, er
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
 
-	return http.DefaultClient.Do(req)
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	return client.Do(req)
 }
 
 func newSize(file *elf.File) Size {
