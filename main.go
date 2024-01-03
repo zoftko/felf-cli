@@ -14,9 +14,15 @@ const (
 	envUrl   = "FELF_URL"
 )
 
+const (
+	version = "v0.0.2"
+)
+
 func main() { os.Exit(cli()) }
 
 func cli() int {
+	slog.Info("starting felf-cli", "version", version)
+
 	onlyMeasure := flag.Bool("only-measure", false, "Stop after performing measurements.")
 	dryRun := flag.Bool("dry-run", false, "Don't push data to the server. Log the payload to stdout.")
 	flag.Parse()
