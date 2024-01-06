@@ -15,7 +15,7 @@ const (
 )
 
 const (
-	version = "v0.0.2"
+	version = "v1.0.0"
 )
 
 func main() { os.Exit(cli()) }
