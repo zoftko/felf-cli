@@ -7,12 +7,6 @@ import (
 	"testing"
 )
 
-var rgctlMeasurements = Size{
-	Text: 940,
-	Data: 2,
-	Bss:  6,
-}
-
 func compareSizes(t *testing.T, expect, got Size) {
 	if expect.Text != got.Text {
 		t.Errorf("expected text size %d got %d", expect.Text, got.Text)
@@ -26,13 +20,35 @@ func compareSizes(t *testing.T, expect, got Size) {
 }
 
 func TestNewMeasurements(t *testing.T) {
-	file, _ := elf.Open("testdata/rgctl.elf")
-	result := newSize(file)
-	compareSizes(
-		t,
-		rgctlMeasurements,
-		result,
-	)
+	tests := map[string]struct {
+		size Size
+	}{
+		"rgctl.elf": {
+			Size{
+				Text: 940,
+				Data: 2,
+				Bss:  6,
+			},
+		},
+		"square.elf": {
+			Size{
+				Text: 1699,
+				Data: 616,
+				Bss:  8,
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			file, _ := elf.Open("testdata/" + name)
+			compareSizes(
+				t,
+				test.size,
+				newSize(file),
+			)
+		})
+	}
 }
 
 func TestPushRedirect(t *testing.T) {
