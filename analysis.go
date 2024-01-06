@@ -108,15 +108,13 @@ func category(section *elf.Section) SectionCategory {
 		return unknownCategory
 	}
 
-	if section.Type == elf.SHT_PROGBITS {
+	if section.Type != elf.SHT_NOBITS {
 		if (section.Flags & elf.SHF_WRITE) == 0 {
 			return codeCategory
 		} else {
 			return dataCategory
 		}
-	} else if section.Type == elf.SHT_NOBITS {
+	} else {
 		return bssCategory
 	}
-
-	return unknownCategory
 }
